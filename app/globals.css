@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  
+  .input-field {
+    @apply border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg p-6;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+  .badge-pendente {
+    @apply bg-amber-50 text-amber-700 ring-amber-200;
+  }
+  .badge-aprovado {
+    @apply bg-green-50 text-green-700 ring-green-200;
+  }
+  .badge-reprovado {
+    @apply bg-red-50 text-red-700 ring-red-200;
+  }
+  .badge-reanalise {
+    @apply bg-orange-50 text-orange-700 ring-orange-200;
+  }
+  .badge-default {
+    @apply bg-gray-50 text-gray-700 ring-gray-200;
+  }
+
+  /* Tabs */
+  .tabs {
+    @apply mb-6 border-b border-gray-200;
+  }
+  .tab {
+    @apply whitespace-nowrap py-3 px-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition;
+  }
+  .tab-active {
+    @apply border-primary-600 text-primary-700;
+  }
+}

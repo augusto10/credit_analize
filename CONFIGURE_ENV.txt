@@ -1,0 +1,6 @@
+AÇÃO NECESSÁRIA: Crie o arquivo .env.local na raiz do projeto com este conteúdo:
+
+NEXT_PUBLIC_SUPABASE_URL=https://eqzxadypndbirhzeequy.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxenhhZHlwbmRiaXJoemVlcXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk5NDYzMjEsImV4cCI6MjA2NTUyMjMyMX0.xm7ZgcO2NhURsDoPqMGvXYmssCkRy5JuSotVbgo6Lb8
+
+DEPOIS DE CRIAR O ARQUIVO .env.local, DELETE ESTE ARQUIVO!

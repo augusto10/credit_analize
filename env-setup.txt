@@ -1,0 +1,11 @@
+# Cole este conteúdo no arquivo .env.local (crie o arquivo na raiz do projeto)
+
+NEXT_PUBLIC_SUPABASE_URL=https://fbgudsagagpeczxamljb.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZ3Vkc2FnYWdwZWN6eGFtbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwOTk0NTEsImV4cCI6MjA3MDY3NTQ1MX0.tfDCJhFn6p9fnlmeT33QPmM8lqsuIMEeW37fdE9Hucw
+
+# Instruções:
+# 1. Crie o arquivo .env.local na raiz do projeto
+# 2. Cole o conteúdo acima
+# 3. Execute o script supabase/setup.sql no SQL Editor do Supabase
+# 4. Crie o bucket 'documentos' (privado) no Storage
+# 5. Execute: npm install && npm run dev
