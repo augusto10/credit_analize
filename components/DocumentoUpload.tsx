@@ -12,13 +12,13 @@ interface DocumentoUploadProps {
 }
 
 export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: DocumentoUploadProps) {
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [tipoDocumento, setTipoDocumento] = useState<string>('')
 
   const uploadFile = async () => {
-    if (!file) return
+    if (!files.length) return
     if (tipos && !tipoDocumento) {
       alert('Selecione o tipo de documento.')
       return
@@ -44,40 +44,42 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
     setSuccess(false)
 
     try {
-      // Criar caminho do arquivo: vendedorId/analiseId/timestamp-nomeArquivo
-      const timestamp = Date.now()
-      const filePath = `${user.id}/${analiseIdNum}/${timestamp}-${file.name}`
-      
-      // Upload para o Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('documentos')
-        .upload(filePath, file, {
-          contentType: file.type || 'application/octet-stream',
-          upsert: true
-        })
+      for (const file of files) {
+        // Criar caminho do arquivo: vendedorId/analiseId/timestamp-nomeArquivo
+        const timestamp = Date.now()
+        const filePath = `${user.id}/${analiseIdNum}/${timestamp}-${file.name}`
 
-      if (uploadError) {
-        throw uploadError
-      }
+        // Upload para o Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(filePath, file, {
+            contentType: file.type || 'application/octet-stream',
+            upsert: true
+          })
 
-      // Salvar referência no banco de dados
-      const { error: dbError } = await supabase
-        .from('documentos')
-        .insert({
-          analise_id: analiseIdNum,
-          nome_arquivo: file.name,
-          url: filePath, // Salvar apenas o caminho, não URL pública
-          tipo_documento: tipoDocumento || 'outro'
-        })
+        if (uploadError) {
+          throw uploadError
+        }
 
-      if (dbError) {
-        throw dbError
+        // Salvar referência no banco de dados
+        const { error: dbError } = await supabase
+          .from('documentos')
+          .insert({
+            analise_id: analiseIdNum,
+            nome_arquivo: file.name,
+            url: filePath, // Salvar apenas o caminho, não URL pública
+            tipo_documento: tipoDocumento || 'outro'
+          })
+
+        if (dbError) {
+          throw dbError
+        }
       }
 
       setSuccess(true)
-      setFile(null)
+      setFiles([])
       setTipoDocumento('')
-      
+
       // Callback para atualizar lista de documentos
       if (onUploadSuccess) {
         onUploadSuccess()
@@ -125,22 +127,23 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
               <div>
                 <input
                   type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                 />
               </div>
               
-              {file && (
+              {files.length > 0 && (
                 <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
                   <FileText className="h-4 w-4" />
-                  <span>{file.name}</span>
+                  <span>{files.length} arquivo(s) selecionado(s)</span>
                 </div>
               )}
 
               <button
                 onClick={uploadFile}
-                disabled={!file || uploading || (Boolean(tipos) && !tipoDocumento)}
+                disabled={files.length === 0 || uploading || (Boolean(tipos) && !tipoDocumento)}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? (

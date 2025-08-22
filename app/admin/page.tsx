@@ -41,6 +41,7 @@ export default function AdminDashboard() {
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [loading, setLoading] = useState(true)
   const [analiseDetalhes, setAnaliseDetalhes] = useState<any | null>(null)
+  const [docTab, setDocTab] = useState<string>('todos')
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [usuariosLoading, setUsuariosLoading] = useState(false)
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', senha: '', tipo_usuario: 'vendedor' as 'vendedor' | 'admin' })
@@ -480,7 +481,7 @@ export default function AdminDashboard() {
                     <div>{new Date(analise.criado_em).toLocaleDateString('pt-BR')}</div>
                   </div>
                   <div className="mt-4">
-                    <button onClick={() => setAnaliseDetalhes(analise)} className="btn-primary w-full flex items-center justify-center space-x-2">
+                    <button onClick={() => { setAnaliseDetalhes(analise); setDocTab('todos') }} className="btn-primary w-full flex items-center justify-center space-x-2">
                       <Eye className="h-4 w-4" />
                       <span>Ver detalhes</span>
                     </button>
@@ -546,7 +547,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{analise.documentos?.length || 0} arquivo(s)</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(analise.criado_em).toLocaleDateString('pt-BR')}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button onClick={() => setAnaliseDetalhes(analise)} className="text-primary-600 hover:text-primary-900 flex items-center space-x-1">
+                          <button onClick={() => { setAnaliseDetalhes(analise); setDocTab('todos') }} className="text-primary-600 hover:text-primary-900 flex items-center space-x-1">
                             <Eye className="h-4 w-4" />
                             <span>Ver</span>
                           </button>
@@ -616,54 +617,80 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* Documentos */}
+                {/* Documentos em abas */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold">
-                      Documentos ({analiseDetalhes.documentos?.length || 0})
-                    </h3>
-                    <button
-                      onClick={() => baixarTodosDocumentos(analiseDetalhes)}
-                      className="text-primary-600 hover:text-primary-800 text-sm flex items-center space-x-1"
-                    >
+                    <h3 className="text-lg font-semibold">Documentos ({analiseDetalhes.documentos?.length || 0})</h3>
+                    <button onClick={() => baixarTodosDocumentos(analiseDetalhes)} className="text-primary-600 hover:text-primary-800 text-sm flex items-center space-x-1">
                       <Download className="h-4 w-4" />
                       <span>Baixar todos</span>
                     </button>
                   </div>
-                  
-                  {analiseDetalhes.documentos && analiseDetalhes.documentos.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {analiseDetalhes.documentos?.map((doc: any) => (
-                        <div
-                          key={doc.id}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <FileText className="h-5 w-5 text-gray-500" />
-                            <span className="text-sm font-medium">{doc.nome_arquivo}</span>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => visualizarDocumento(doc)}
-                              className="text-primary-600 hover:text-primary-800 flex items-center space-x-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>Ver</span>
-                            </button>
-                            <button
-                              onClick={() => baixarDocumento(doc)}
-                              className="text-primary-600 hover:text-primary-800 flex items-center space-x-1"
-                            >
-                              <Download className="h-4 w-4" />
-                              <span>Baixar</span>
-                            </button>
-                          </div>
+
+                  {(() => {
+                    const docs: any[] = analiseDetalhes.documentos || []
+                    const tipo = (d: any) => (d?.tipo_documento || 'outros') as string
+                    const allTypes = ['todos','contrato_social','documento_socios','selfie_responsavel','foto_fachada','selfie_obra_ou_sede','fotos_obra','notas_fiscais','boletos_pagados','outros']
+                    const labels: Record<string,string> = {
+                      todos: 'Todos',
+                      contrato_social: 'Contrato Social',
+                      documento_socios: 'Documentos dos Sócios',
+                      selfie_responsavel: 'Selfie do Responsável',
+                      foto_fachada: 'Foto da Fachada',
+                      selfie_obra_ou_sede: 'Selfie Obra/Sede',
+                      fotos_obra: 'Fotos da Obra',
+                      notas_fiscais: 'Notas Fiscais',
+                      boletos_pagados: 'Boletos Pagos',
+                      outros: 'Outros'
+                    }
+                    const counts = allTypes.reduce<Record<string, number>>((acc, t) => {
+                      acc[t] = t === 'todos' ? docs.length : docs.filter(d => tipo(d) === t).length
+                      return acc
+                    }, {})
+                    const filtered = docTab === 'todos' ? docs : docs.filter(d => tipo(d) === docTab)
+
+                    return (
+                      <>
+                        <div className="tabs mb-4 overflow-x-auto">
+                          <nav className="-mb-px flex space-x-2" aria-label="Tabs">
+                            {allTypes.map(t => (
+                              <button key={t} className={`tab ${docTab === t ? 'tab-active' : ''}`} onClick={() => setDocTab(t)}>
+                                {labels[t]} ({counts[t] || 0})
+                              </button>
+                            ))}
+                          </nav>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">Nenhum documento enviado ainda.</p>
-                  )}
+
+                        {filtered.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {filtered.map((doc: any) => (
+                              <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex items-center space-x-2">
+                                  <FileText className="h-5 w-5 text-gray-500" />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{doc.nome_arquivo}</span>
+                                    <span className="text-xs text-gray-500 capitalize">{labels[tipo(doc)] || 'Outros'}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  <button onClick={() => visualizarDocumento(doc)} className="text-primary-600 hover:text-primary-800 flex items-center space-x-1">
+                                    <Eye className="h-4 w-4" />
+                                    <span>Ver</span>
+                                  </button>
+                                  <button onClick={() => baixarDocumento(doc)} className="text-primary-600 hover:text-primary-800 flex items-center space-x-1">
+                                    <Download className="h-4 w-4" />
+                                    <span>Baixar</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">Nenhum documento nesta aba.</p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
 
                 {/* Ações */}
