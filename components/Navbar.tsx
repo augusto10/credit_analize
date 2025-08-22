@@ -78,6 +78,12 @@ export default function Navbar({ title }: NavbarProps) {
               </span>
             </div>
             <button
+              onClick={() => router.push('/senha')}
+              className="flex items-center space-x-1 text-gray-500 hover:text-surface-900 transition-colors text-sm"
+            >
+              <span>Trocar senha</span>
+            </button>
+            <button
               onClick={handleLogout}
               className="flex items-center space-x-1 text-gray-500 hover:text-surface-900 transition-colors"
             >
