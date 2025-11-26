@@ -64,8 +64,7 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
         .insert({
           analise_id: analiseId,
           nome_arquivo: file.name,
-          url: filePath, // Salvar apenas o caminho, não URL pública
-          tipo_documento: tipoDocumento || 'outro'
+          url: filePath // Salvar apenas o caminho, não URL pública
         })
 
       if (dbError) {
