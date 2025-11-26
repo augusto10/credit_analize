@@ -7,7 +7,7 @@ import DocumentoUpload from "@/components/DocumentoUpload"
 import { supabase } from "@/lib/supabase"
 import { authService } from "@/lib/auth"
 import { Analise, Documento, ReferenciaComercial } from "@/lib/supabase"
-import { CheckCircle, Clock, XCircle, AlertCircle, FileText } from "lucide-react"
+import { CheckCircle, Clock, XCircle, AlertCircle, FileText, Trash2 } from "lucide-react"
 
 interface PageProps {
   params: { id: string }
@@ -16,6 +16,7 @@ interface PageProps {
 interface AnaliseComRel extends Analise {
   documentos?: Documento[]
   referencias_comerciais?: ReferenciaComercial[]
+  finalizada?: boolean
 }
 
 export default function VendedorAnaliseDetalhe({ params }: PageProps) {
@@ -211,6 +212,40 @@ export default function VendedorAnaliseDetalhe({ params }: PageProps) {
     }
   }
 
+  const excluirDocumento = async (documento: Documento) => {
+    if (!confirm(`Tem certeza que deseja excluir o arquivo "${documento.nome_arquivo}"? Esta ação não pode ser desfeita.`)) {
+      return
+    }
+
+    try {
+      // Excluir do storage
+      const { error: storageError } = await supabase.storage
+        .from('documentos')
+        .remove([documento.url])
+
+      if (storageError) {
+        console.error('Erro ao excluir do storage:', storageError)
+        // Continua mesmo se houver erro no storage, para limpar o banco
+      }
+
+      // Excluir do banco de dados
+      const { error: dbError } = await supabase
+        .from('documentos')
+        .delete()
+        .eq('id', documento.id)
+
+      if (dbError) throw dbError
+
+      // Recarregar os dados
+      await carregar()
+      alert('Documento excluído com sucesso!')
+
+    } catch (error) {
+      console.error('Erro ao excluir documento:', error)
+      alert('Erro ao excluir documento. Tente novamente.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -282,7 +317,7 @@ export default function VendedorAnaliseDetalhe({ params }: PageProps) {
           <div className="mb-6">
             <div className="tabs mb-4">
               <button className={`tab ${tabAtiva === 'checklist' ? 'tab-active' : ''}`} onClick={() => setTabAtiva('checklist')}>Checklist</button>
-              <button className={`tab ${tabAtiva === 'documentos' ? 'tab-active' : ''}`} onClick={() => setTabAtiva('documentos')}>Documentos ({analise.documentos?.length || 0})</button>
+              <button className={`tab ${tabAtiva === 'documentos' ? 'tab-active' : ''}`} onClick={() => setTabAtiva('documentos')}>Documentos ({analise.finalizada ? 0 : (analise.documentos?.length || 0)})</button>
             </div>
 
             {tabAtiva === 'checklist' ? (
@@ -305,7 +340,17 @@ export default function VendedorAnaliseDetalhe({ params }: PageProps) {
               </div>
             ) : (
               <div>
-                {analise.documentos && analise.documentos.length > 0 ? (
+                {analise.finalizada ? (
+                  <div className="text-center py-8">
+                    <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Proposta Finalizada
+                    </h3>
+                    <p className="text-gray-600">
+                      Todos os documentos foram excluídos do sistema
+                    </p>
+                  </div>
+                ) : analise.documentos && analise.documentos.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {analise.documentos.map((doc) => (
                       <div key={doc.id} className="p-3 border rounded flex items-center justify-between">
@@ -313,7 +358,18 @@ export default function VendedorAnaliseDetalhe({ params }: PageProps) {
                           <FileText className="h-4 w-4" />
                           <span className="truncate">{doc.nome_arquivo}</span>
                         </div>
-                        <button className="text-primary-600 hover:text-primary-900 text-sm" onClick={() => visualizarDocumento(doc)}>Abrir</button>
+                        <div className="flex items-center space-x-2">
+                          <button className="text-primary-600 hover:text-primary-900 text-sm" onClick={() => visualizarDocumento(doc)}>Abrir</button>
+                          {(analise.status === 'rascunho' || analise.status === 'reanalise') && (
+                            <button 
+                              className="text-red-600 hover:text-red-800 p-1" 
+                              onClick={() => excluirDocumento(doc)}
+                              title="Excluir documento"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

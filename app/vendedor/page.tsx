@@ -269,7 +269,7 @@ export default function VendedorDashboard() {
                     disabled={creating}
                     className="btn-primary flex-1"
                   >
-                    {creating ? 'Criando...' : 'Criar como Rascunho'}
+                    {creating ? 'Criando...' : 'Criar'}
                   </button>
                 </div>
               </form>
@@ -335,25 +335,27 @@ export default function VendedorDashboard() {
                 )}
 
                 <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={async () => {
-                      if (!confirm('Remover esta proposta (rascunho)? Esta ação não pode ser desfeita.')) return
-                      try {
-                        await supabase.from('documentos').delete().eq('analise_id', analise.id)
-                        await supabase.from('referencias_comerciais').delete().eq('analise_id', analise.id)
-                        const { error } = await supabase.from('analises').delete().eq('id', analise.id)
-                        if (error) throw error
-                        setAnalises(prev => prev.filter(a => a.id !== analise.id))
-                        alert('Proposta removida com sucesso.')
-                      } catch (e) {
-                        console.error('Erro ao remover proposta:', e)
-                        alert('Não foi possível remover a proposta. Tente novamente.')
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-800 mr-4"
-                  >
-                    Remover Proposta
-                  </button>
+                  {analise.status === 'rascunho' && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Remover esta proposta (rascunho)? Esta ação não pode ser desfeita.')) return
+                        try {
+                          await supabase.from('documentos').delete().eq('analise_id', analise.id)
+                          await supabase.from('referencias_comerciais').delete().eq('analise_id', analise.id)
+                          const { error } = await supabase.from('analises').delete().eq('id', analise.id)
+                          if (error) throw error
+                          setAnalises(prev => prev.filter(a => a.id !== analise.id))
+                          alert('Proposta removida com sucesso.')
+                        } catch (e) {
+                          console.error('Erro ao remover proposta:', e)
+                          alert('Não foi possível remover a proposta. Tente novamente.')
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-800 mr-4"
+                    >
+                      Remover Proposta
+                    </button>
+                  )}
                   <button
                     onClick={() => router.push(`/vendedor/${analise.id}`)}
                     className="text-primary-600 hover:text-primary-900 flex items-center space-x-1"
