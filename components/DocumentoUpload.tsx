@@ -42,33 +42,25 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
     setSuccess(false)
 
     try {
-      // Criar caminho do arquivo: vendedorId/analiseId/timestamp-nomeArquivo
-      const timestamp = Date.now()
-      const filePath = `${user.id}/${analiseId}/${timestamp}-${file.name}`
-      
-      // Upload para o Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('documentos')
-        .upload(filePath, file, {
-          contentType: file.type || 'application/octet-stream',
-          upsert: true
-        })
+      // Criar FormData para upload via API
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('analiseId', analiseId)
+      formData.append('userId', user.id)
 
-      if (uploadError) {
-        throw uploadError
-      }
+      console.log('Enviando upload via API...')
 
-      // Salvar referência no banco de dados
-      const { error: dbError } = await supabase
-        .from('documentos')
-        .insert({
-          analise_id: analiseId,
-          nome_arquivo: file.name,
-          url: filePath // Salvar apenas o caminho, não URL pública
-        })
+      // Upload via API route (mais seguro e evita RLS)
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
 
-      if (dbError) {
-        throw dbError
+      const result = await response.json()
+      console.log('Resultado upload API:', result)
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Erro ao enviar documento')
       }
 
       setSuccess(true)
@@ -85,8 +77,7 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
 
     } catch (error: any) {
       console.error('Erro ao enviar documento:', error)
-      const msg = error?.message || 'Erro ao enviar documento. Tente novamente.'
-      alert(msg)
+      alert(error.message || 'Erro ao enviar documento. Tente novamente.')
     } finally {
       setUploading(false)
     }
