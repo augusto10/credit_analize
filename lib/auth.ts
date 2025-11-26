@@ -13,63 +13,61 @@ export const authService = {
     // Debug: log para verificar se está chegando aqui
     console.log('Tentando login com:', email, senha)
     
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('email', email)
-      .eq('senha', senha)
-      .single()
+    try {
+      // Usar API route para login seguro (evita problema de RLS)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, senha })
+      })
 
-    console.log('Resultado Supabase:', { data, error })
+      const result = await response.json()
+      console.log('Resultado API login:', result)
 
-    if (error || !data) {
-      // Fallback temporário para usuários de teste
-      if (email === 'vendedor@teste.com' && senha === '123456') {
-        const testUser = {
-          id: 1,
-          nome: 'João Vendedor',
-          email: 'vendedor@teste.com',
-          tipo_usuario: 'vendedor' as const
+      if (!response.ok || result.error) {
+        // Fallback temporário para usuários de teste
+        if (email === 'vendedor@teste.com' && senha === '123456') {
+          const testUser = {
+            id: 'test-1',
+            nome: 'João Vendedor',
+            email: 'vendedor@teste.com',
+            tipo_usuario: 'vendedor' as const
+          }
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('user', JSON.stringify(testUser))
+          }
+          return testUser
         }
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('user', JSON.stringify(testUser))
+        
+        if (email === 'admin@teste.com' && senha === '123456') {
+          const testUser = {
+            id: 'test-2',
+            nome: 'Maria Admin',
+            email: 'admin@teste.com',
+            tipo_usuario: 'admin' as const
+          }
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('user', JSON.stringify(testUser))
+          }
+          return testUser
         }
-        return testUser
+        
+        return null
       }
-      
-      if (email === 'admin@teste.com' && senha === '123456') {
-        const testUser = {
-          id: 2,
-          nome: 'Maria Admin',
-          email: 'admin@teste.com',
-          tipo_usuario: 'admin' as const
-        }
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('user', JSON.stringify(testUser))
-        }
-        return testUser
+
+      const user = result.user
+      // Salvar no localStorage para manter sessão
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(user))
       }
-      
+
+      return user
+    } catch (error) {
+      console.error('Erro no login:', error)
       return null
-    }
-
-    // Salvar no localStorage para manter sessão
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('user', JSON.stringify({
-        id: data.id,
-        nome: data.nome,
-        email: data.email,
-        tipo_usuario: data.tipo_usuario
-      }))
-    }
-
-    return {
-      id: data.id,
-      nome: data.nome,
-      email: data.email,
-      tipo_usuario: data.tipo_usuario
-    }
-  },
+    },
 
   logout() {
     if (typeof window !== 'undefined') {
