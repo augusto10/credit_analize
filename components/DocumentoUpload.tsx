@@ -25,8 +25,7 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
     }
 
     const user = authService.getCurrentUser()
-    if (!user) return
-    if (!Number.isFinite(user.id)) {
+    if (!user) {
       alert('Sessão inválida. Faça login novamente.')
       authService.clearCache()
       return
