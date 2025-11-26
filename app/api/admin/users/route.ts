@@ -20,32 +20,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
     }
 
-    // 1) Criar usuário no Auth
-    const { data: authRes, error: authErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: senha,
-      email_confirm: true,
-      user_metadata: { tipo_usuario }
-    })
-    if (authErr) {
-      return NextResponse.json({ error: `Auth: ${authErr.message}` }, { status: 400 })
-    }
-
-    const user = authRes.user
-    if (!user) {
-      return NextResponse.json({ error: 'Falha ao criar usuário' }, { status: 500 })
-    }
-
-    // 2) Inserir na tabela usuarios (usar SERIAL id do banco e gravar senha para login local)
-    const { error: insertErr } = await supabaseAdmin
+    // Verificar se usuário já existe
+    const { data: existingUser, error: checkError } = await supabaseAdmin
       .from('usuarios')
-      .insert({ nome, email, senha, tipo_usuario: (tipo_usuario === 'admin' ? 'admin' : 'vendedor') as any })
+      .select('*')
+      .eq('email', email)
+      .single()
+
+    if (existingUser && !checkError) {
+      return NextResponse.json({ error: 'Já existe um usuário com este email' }, { status: 400 })
+    }
+
+    // Inserir diretamente na tabela usuarios (sem Supabase Auth)
+    const { data: newUser, error: insertErr } = await supabaseAdmin
+      .from('usuarios')
+      .insert({
+        nome: nome.trim(),
+        email: email.trim(),
+        senha,
+        tipo_usuario: (tipo_usuario === 'admin' ? 'admin' : 'vendedor') as any
+      })
+      .select()
+      .single()
 
     if (insertErr) {
-      return NextResponse.json({ error: `DB: ${insertErr.message}` }, { status: 400 })
+      console.error('Erro ao inserir usuário:', insertErr)
+      return NextResponse.json({ error: `Erro ao salvar usuário: ${insertErr.message}` }, { status: 400 })
     }
 
-    return NextResponse.json({ id: user.id, email: user.email }, { status: 201 })
+    console.log('Usuário criado com sucesso:', newUser.nome)
+    return NextResponse.json({ id: newUser.id, email: newUser.email, nome: newUser.nome }, { status: 201 })
   } catch (e: any) {
     console.error('Erro API criar usuário:', e)
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 })

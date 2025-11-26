@@ -136,12 +136,6 @@ export default function Login() {
                 )}
               </button>
             </div>
-
-            <div className="text-center text-sm text-gray-600">
-              <p>Usuários de teste:</p>
-              <p><strong>Vendedor:</strong> vendedor@teste.com / 123456</p>
-              <p><strong>Admin:</strong> admin@teste.com / 123456</p>
-            </div>
           </form>
         </div>
       </div>

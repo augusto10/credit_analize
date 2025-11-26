@@ -14,7 +14,8 @@ import {
   Clock, 
   Filter,
   Eye,
-  Download
+  Download,
+  Archive
 } from 'lucide-react'
 
 interface AnaliseComDocumentos extends Analise {
@@ -28,7 +29,7 @@ type AnaliseTemp = {
   vendedor_id: string
   cliente_nome: string
   cliente_cpf: string
-  status: 'pendente' | 'aprovado' | 'reprovado' | 'reanalise'
+  status: 'pendente' | 'aprovado' | 'reprovado' | 'reanalise' | 'finalizada'
   criado_em: string
   atualizado_em: string
   documentos?: Documento[]
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [loading, setLoading] = useState(true)
   const [analiseDetalhes, setAnaliseDetalhes] = useState<any | null>(null)
+  const [docTab, setDocTab] = useState<string>('todos')
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [usuariosLoading, setUsuariosLoading] = useState(false)
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', senha: '', tipo_usuario: 'vendedor' as 'vendedor' | 'admin' })
@@ -223,6 +225,79 @@ export default function AdminDashboard() {
     await mudarStatus(analiseId, 'reprovado', undefined, comentario.trim() || '')
   }
 
+  const finalizarProposta = async (analiseId: string) => {
+    if (!confirm('Tem certeza que deseja finalizar esta proposta? Todos os documentos serão excluídos do storage e a proposta será marcada como finalizada. Esta ação não pode ser desfeita.')) {
+      return
+    }
+
+    try {
+      // Buscar a análise com seus documentos
+      const analise = analises.find(a => a.id === analiseId)
+      if (!analise) {
+        alert('Análise não encontrada.')
+        return
+      }
+
+      // Excluir todos os documentos do storage
+      if (analise.documentos && analise.documentos.length > 0) {
+        const documentoPaths = analise.documentos.map((doc: Documento) => doc.url)
+        
+        const { error: storageError } = await supabase.storage
+          .from('documentos')
+          .remove(documentoPaths)
+
+        if (storageError) {
+          console.error('Erro ao excluir documentos do storage:', storageError)
+          // Continua mesmo com erro no storage
+        }
+
+        // Excluir registros dos documentos do banco
+        const { error: dbError } = await supabase
+          .from('documentos')
+          .delete()
+          .eq('analise_id', analiseId)
+
+        if (dbError) {
+          console.error('Erro ao excluir documentos do banco:', dbError)
+          // Continua mesmo com erro no banco
+        }
+      }
+
+      // Marcar proposta como finalizada mantendo status original
+      const { error } = await supabase
+        .from('analises')
+        .update({ 
+          finalizada: true,
+          atualizado_em: new Date().toISOString()
+        })
+        .eq('id', analiseId)
+
+      if (error) throw error
+      
+      // Atualizar análise local para remover documentos e marcar como finalizada
+      setAnalises(prev => prev.map(a => 
+        a.id === analiseId 
+          ? { ...a, finalizada: true, documentos: [] }
+          : a
+      ))
+
+      // Atualizar modal se estiver aberto
+      if (analiseDetalhes?.id === analiseId) {
+        setAnaliseDetalhes({
+          ...analiseDetalhes,
+          finalizada: true,
+          documentos: []
+        })
+      }
+      
+      alert('Proposta finalizada com sucesso! Todos os documentos foram excluídos.')
+
+    } catch (error) {
+      console.error('Erro ao finalizar proposta:', error)
+      alert('Erro ao finalizar proposta. Tente novamente.')
+    }
+  }
+
   const visualizarDocumento = async (documento: Documento) => {
     try {
       const { data, error } = await supabase.storage
@@ -296,7 +371,51 @@ export default function AdminDashboard() {
     return analise.status === filtroStatus
   })
 
-  const getStatusIcon = (status: string) => {
+  const getStatusText = (analise: any) => {
+    const baseStatus = analise.status
+    const isFinalizada = analise.finalizada
+    
+    if (isFinalizada) {
+      switch (baseStatus) {
+        case 'aprovado':
+          return 'Aprovado e Finalizado'
+        case 'reprovado':
+          return 'Reprovado e Finalizado'
+        default:
+          return `${baseStatus} e Finalizado`
+      }
+    }
+    
+    switch (baseStatus) {
+      case 'pendente':
+        return 'Em análise'
+      case 'aprovado':
+        return 'Aprovado'
+      case 'reprovado':
+        return 'Reprovado'
+      case 'reanalise':
+        return 'Requer Documentos'
+      default:
+        return baseStatus
+    }
+  }
+
+  const getStatusIcon = (analise: any) => {
+    const status = analise.status
+    const isFinalizada = analise.finalizada
+    
+    if (isFinalizada) {
+      return (
+        <div className="flex items-center space-x-1">
+          {status === 'aprovado' && <CheckCircle className="h-4 w-4 text-green-500" />}
+          {status === 'reprovado' && <XCircle className="h-4 w-4 text-red-500" />}
+          {status === 'reanalise' && <AlertCircle className="h-4 w-4 text-orange-500" />}
+          {status === 'pendente' && <Clock className="h-4 w-4 text-yellow-500" />}
+          <Archive className="h-4 w-4 text-gray-600" />
+        </div>
+      )
+    }
+    
     switch (status) {
       case 'pendente':
         return <Clock className="h-5 w-5 text-yellow-500" />
@@ -311,7 +430,14 @@ export default function AdminDashboard() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (analise: any) => {
+    const status = analise.status
+    const isFinalizada = analise.finalizada
+    
+    if (isFinalizada) {
+      return 'badge badge-gray'
+    }
+    
     switch (status) {
       case 'pendente':
         return 'badge-pendente'
@@ -381,6 +507,7 @@ export default function AdminDashboard() {
                   <option value="aprovado">Aprovado</option>
                   <option value="reprovado">Reprovado</option>
                   <option value="reanalise">Requer Documentos</option>
+                  <option value="finalizada">Finalizada</option>
                 </select>
               </div>
             </div>
@@ -461,7 +588,7 @@ export default function AdminDashboard() {
                       <div className="text-base font-semibold text-gray-900">{analise.cliente_nome}</div>
                       <div className="text-sm text-gray-500">{analise.cliente_cpf}</div>
                     </div>
-                    <div className={`badge ${getStatusBadge(analise.status)}`}>{analise.status}</div>
+                    <div className={`badge ${getStatusBadge(analise)}`}>{getStatusText(analise)}</div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <div>
@@ -480,7 +607,7 @@ export default function AdminDashboard() {
                     <div>{new Date(analise.criado_em).toLocaleDateString('pt-BR')}</div>
                   </div>
                   <div className="mt-4">
-                    <button onClick={() => setAnaliseDetalhes(analise)} className="btn-primary w-full flex items-center justify-center space-x-2">
+                    <button onClick={() => { setAnaliseDetalhes(analise); setDocTab('todos') }} className="btn-primary w-full flex items-center justify-center space-x-2">
                       <Eye className="h-4 w-4" />
                       <span>Ver detalhes</span>
                     </button>
@@ -539,14 +666,14 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
-                            {getStatusIcon(analise.status)}
-                            <span className={`badge ${getStatusBadge(analise.status)}`}>{analise.status}</span>
+                            {getStatusIcon(analise)}
+                            <span className={`badge ${getStatusBadge(analise)}`}>{getStatusText(analise)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{analise.documentos?.length || 0} arquivo(s)</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(analise.criado_em).toLocaleDateString('pt-BR')}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button onClick={() => setAnaliseDetalhes(analise)} className="text-primary-600 hover:text-primary-900 flex items-center space-x-1">
+                          <button onClick={() => { setAnaliseDetalhes(analise); setDocTab('todos') }} className="text-primary-600 hover:text-primary-900 flex items-center space-x-1">
                             <Eye className="h-4 w-4" />
                             <span>Ver</span>
                           </button>
@@ -589,8 +716,8 @@ export default function AdminDashboard() {
                 {/* Status atual */}
                 <div className="mb-6">
                   <div className="flex items-center space-x-2 mb-4">
-                    {getStatusIcon(analiseDetalhes.status)}
-                    <span className={`badge ${getStatusBadge(analiseDetalhes.status)}`}>Status: {analiseDetalhes.status}</span>
+                    {getStatusIcon(analiseDetalhes)}
+                    <span className={`badge ${getStatusBadge(analiseDetalhes)}`}>Status: {getStatusText(analiseDetalhes)}</span>
                   </div>
                   {analiseDetalhes.observacao_reanalise && (
                     <div className="bg-orange-50 border border-orange-200 text-orange-800 p-3 rounded">
@@ -616,91 +743,149 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* Documentos */}
+                {/* Documentos em abas */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold">
-                      Documentos ({analiseDetalhes.documentos?.length || 0})
-                    </h3>
-                    <button
-                      onClick={() => baixarTodosDocumentos(analiseDetalhes)}
-                      className="text-primary-600 hover:text-primary-800 text-sm flex items-center space-x-1"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>Baixar todos</span>
-                    </button>
+                    <h3 className="text-lg font-semibold">Documentos ({analiseDetalhes.finalizada ? 0 : (analiseDetalhes.documentos?.length || 0)})</h3>
+                    {!analiseDetalhes.finalizada && (
+                      <button onClick={() => baixarTodosDocumentos(analiseDetalhes)} className="text-primary-600 hover:text-primary-800 text-sm flex items-center space-x-1">
+                        <Download className="h-4 w-4" />
+                        <span>Baixar todos</span>
+                      </button>
+                    )}
                   </div>
-                  
-                  {analiseDetalhes.documentos && analiseDetalhes.documentos.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {analiseDetalhes.documentos?.map((doc: any) => (
-                        <div
-                          key={doc.id}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <FileText className="h-5 w-5 text-gray-500" />
-                            <span className="text-sm font-medium">{doc.nome_arquivo}</span>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => visualizarDocumento(doc)}
-                              className="text-primary-600 hover:text-primary-800 flex items-center space-x-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>Ver</span>
-                            </button>
-                            <button
-                              onClick={() => baixarDocumento(doc)}
-                              className="text-primary-600 hover:text-primary-800 flex items-center space-x-1"
-                            >
-                              <Download className="h-4 w-4" />
-                              <span>Baixar</span>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+
+                  {analiseDetalhes.finalizada ? (
+                    <div className="text-center py-8">
+                      <Archive className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Proposta Finalizada
+                      </h3>
+                      <p className="text-gray-600">
+                        Todos os documentos foram excluídos do sistema
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-gray-500">Nenhum documento enviado ainda.</p>
-                  )}
+                  ) : (() => {
+                    const docs: any[] = analiseDetalhes.documentos || []
+                    const tipo = (d: any) => (d?.tipo_documento || 'outros') as string
+                    const allTypes = ['todos','contrato_social','documento_socios','selfie_responsavel','foto_fachada','selfie_obra_ou_sede','fotos_obra','notas_fiscais','boletos_pagados','outros']
+                    const labels: Record<string,string> = {
+                      todos: 'Todos',
+                      contrato_social: 'Contrato Social',
+                      documento_socios: 'Documentos dos Sócios',
+                      selfie_responsavel: 'Selfie do Responsável',
+                      foto_fachada: 'Foto da Fachada',
+                      selfie_obra_ou_sede: 'Selfie Obra/Sede',
+                      fotos_obra: 'Fotos da Obra',
+                      notas_fiscais: 'Notas Fiscais',
+                      boletos_pagados: 'Boletos Pagos',
+                      outros: 'Outros'
+                    }
+                    const counts = allTypes.reduce<Record<string, number>>((acc, t) => {
+                      acc[t] = t === 'todos' ? docs.length : docs.filter(d => tipo(d) === t).length
+                      return acc
+                    }, {})
+                    const filtered = docTab === 'todos' ? docs : docs.filter(d => tipo(d) === docTab)
+
+                    return (
+                      <>
+                        <div className="tabs mb-4 overflow-x-auto">
+                          <nav className="-mb-px flex space-x-2" aria-label="Tabs">
+                            {allTypes.map(t => (
+                              <button key={t} className={`tab ${docTab === t ? 'tab-active' : ''}`} onClick={() => setDocTab(t)}>
+                                {labels[t]} ({counts[t] || 0})
+                              </button>
+                            ))}
+                          </nav>
+                        </div>
+
+                        {filtered.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {filtered.map((doc: any) => (
+                              <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex items-center space-x-2">
+                                  <FileText className="h-5 w-5 text-gray-500" />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{doc.nome_arquivo}</span>
+                                    <span className="text-xs text-gray-500 capitalize">{labels[tipo(doc)] || 'Outros'}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  <button onClick={() => visualizarDocumento(doc)} className="text-primary-600 hover:text-primary-800 flex items-center space-x-1">
+                                    <Eye className="h-4 w-4" />
+                                    <span>Ver</span>
+                                  </button>
+                                  <button onClick={() => baixarDocumento(doc)} className="text-primary-600 hover:text-primary-800 flex items-center space-x-1">
+                                    <Download className="h-4 w-4" />
+                                    <span>Baixar</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">Nenhum documento nesta aba.</p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
 
                 {/* Ações */}
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-semibold mb-4">Ações</h3>
                   <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => aprovarAnalise(analiseDetalhes.id)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Aprovar</span>
-                    </button>
+                    {!analiseDetalhes.finalizada && (
+                      <>
+                        <button
+                          onClick={() => aprovarAnalise(analiseDetalhes.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Aprovar</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => reprovarAnalise(analiseDetalhes.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          <span>Reprovar</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => solicitarReanalise(analiseDetalhes.id)}
+                          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+                        >
+                          <AlertCircle className="h-4 w-4" />
+                          <span>Solicitar Documentos</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => mudarStatus(analiseDetalhes.id, 'pendente')}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+                        >
+                          <Clock className="h-4 w-4" />
+                          <span>Marcar como Pendente</span>
+                        </button>
+                      </>
+                    )}
                     
-                    <button
-                      onClick={() => reprovarAnalise(analiseDetalhes.id)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      <span>Reprovar</span>
-                    </button>
+                    {(analiseDetalhes.status === 'aprovado' || analiseDetalhes.status === 'reprovado') && !analiseDetalhes.finalizada && (
+                      <button
+                        onClick={() => finalizarProposta(analiseDetalhes.id)}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+                      >
+                        <Archive className="h-4 w-4" />
+                        <span>Finalizar Proposta</span>
+                      </button>
+                    )}
                     
-                    <button
-                      onClick={() => solicitarReanalise(analiseDetalhes.id)}
-                      className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-                    >
-                      <AlertCircle className="h-4 w-4" />
-                      <span>Solicitar Documentos</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => mudarStatus(analiseDetalhes.id, 'pendente')}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-                    >
-                      <Clock className="h-4 w-4" />
-                      <span>Marcar como Pendente</span>
-                    </button>
+                    {analiseDetalhes.finalizada && (
+                      <div className="text-gray-600 italic">
+                        Proposta finalizada - Documentos foram excluídos
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
