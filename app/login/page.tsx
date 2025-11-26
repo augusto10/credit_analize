@@ -17,20 +17,34 @@ export default function Login() {
     setLoading(true)
     setError('')
 
+    console.log('=== INÍCIO DO LOGIN ===')
+    console.log('Email:', email)
+    console.log('Senha:', senha)
+
     try {
       const user = await authService.login(email, senha)
       
+      console.log('Resultado do authService.login:', user)
+      
       if (user) {
+        console.log('Login bem sucedido!')
+        console.log('Tipo usuário:', user.tipo_usuario)
+        console.log('Redirecionando para:', user.tipo_usuario === 'admin' ? '/admin' : '/vendedor')
+        
         // Redirecionar baseado no tipo de usuário
         if (user.tipo_usuario === 'admin') {
-          router.push('/admin')
+          console.log('Executando router.push("/admin")')
+          await router.push('/admin')
         } else {
-          router.push('/vendedor')
+          console.log('Executando router.push("/vendedor")')
+          await router.push('/vendedor')
         }
       } else {
+        console.log('Login falhou - usuário null')
         setError('Email ou senha incorretos')
       }
     } catch (err) {
+      console.log('Erro no login:', err)
       setError('Erro ao fazer login. Tente novamente.')
     } finally {
       setLoading(false)
