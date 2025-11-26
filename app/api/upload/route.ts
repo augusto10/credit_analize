@@ -93,7 +93,7 @@ export async function POST(req: Request) {
           if (retryError) {
             throw retryError
           }
-        } catch (policyError) {
+        } catch (policyError: any) {
           console.log('Erro ao criar política:', policyError.message)
           throw dbError // Retornar erro original
         }
