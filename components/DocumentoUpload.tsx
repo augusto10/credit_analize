@@ -6,7 +6,7 @@ import { authService } from '@/lib/auth'
 import { Upload, FileText, CheckCircle } from 'lucide-react'
 
 interface DocumentoUploadProps {
-  analiseId: number | string
+  analiseId: string
   tipos?: { value: string; label: string }[]
   onUploadSuccess?: () => void
 }
@@ -31,9 +31,8 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
       return
     }
 
-    // Normalizar analiseId para número
-    const analiseIdNum = typeof analiseId === 'number' ? analiseId : Number(analiseId)
-    if (!Number.isFinite(analiseIdNum)) {
+    // Validar analiseId (agora é UUID string)
+    if (!analiseId || typeof analiseId !== 'string') {
       console.error('analiseId inválido para upload:', analiseId)
       alert('Erro interno: ID da análise inválido.')
       return
@@ -45,7 +44,7 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
     try {
       // Criar caminho do arquivo: vendedorId/analiseId/timestamp-nomeArquivo
       const timestamp = Date.now()
-      const filePath = `${user.id}/${analiseIdNum}/${timestamp}-${file.name}`
+      const filePath = `${user.id}/${analiseId}/${timestamp}-${file.name}`
       
       // Upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -63,7 +62,7 @@ export default function DocumentoUpload({ analiseId, onUploadSuccess, tipos }: D
       const { error: dbError } = await supabase
         .from('documentos')
         .insert({
-          analise_id: analiseIdNum,
+          analise_id: analiseId,
           nome_arquivo: file.name,
           url: filePath, // Salvar apenas o caminho, não URL pública
           tipo_documento: tipoDocumento || 'outro'
