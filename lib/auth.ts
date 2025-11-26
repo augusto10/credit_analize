@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import { Usuario } from './supabase'
 
 export interface AuthUser {
-  id: number
+  id: string
   nome: string
   email: string
   tipo_usuario: 'vendedor' | 'admin'
@@ -30,7 +30,7 @@ export const authService = {
         // Fallback temporário para usuários de teste
         if (email === 'vendedor@teste.com' && senha === '123456') {
           const testUser: AuthUser = {
-            id: 1,
+            id: 'test-1',
             nome: 'João Vendedor',
             email: 'vendedor@teste.com',
             tipo_usuario: 'vendedor'
@@ -43,7 +43,7 @@ export const authService = {
         
         if (email === 'admin@teste.com' && senha === '123456') {
           const testUser: AuthUser = {
-            id: 2,
+            id: 'test-2',
             nome: 'Maria Admin',
             email: 'admin@teste.com',
             tipo_usuario: 'admin'
@@ -92,22 +92,11 @@ export const authService = {
       if (!userStr) return null
       try {
         const parsed = JSON.parse(userStr)
-        // Normalizar id: aceitar string numérica e converter; rejeitar valores inválidos
-        const coercedId = typeof parsed.id === 'number' ? parsed.id : Number(parsed.id)
-        if (!Number.isFinite(coercedId)) {
-          // Remover estado inválido para forçar re-login
-          localStorage.removeItem('user')
-          return null
-        }
         const user: AuthUser = {
-          id: coercedId,
+          id: parsed.id,
           nome: parsed.nome,
           email: parsed.email,
           tipo_usuario: parsed.tipo_usuario
-        }
-        // Persistir versão saneada se necessário
-        if (parsed.id !== coercedId) {
-          localStorage.setItem('user', JSON.stringify(user))
         }
         return user
       } catch {
