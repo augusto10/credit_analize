@@ -7,7 +7,7 @@ import { authService } from '@/lib/auth'
 import { Analise, Documento, ReferenciaComercial } from '@/lib/supabase'
 import Navbar from '@/components/Navbar'
 import DocumentoUpload from '@/components/DocumentoUpload'
-import { Plus, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Download } from 'lucide-react'
+import { Plus, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Download, Trash2 } from 'lucide-react'
 
 interface AnaliseComDocumentos extends Analise {
   documentos?: Documento[]
@@ -74,6 +74,48 @@ export default function VendedorDashboard() {
     } catch (error) {
       console.error('Erro ao visualizar documento:', error)
       alert('Erro ao visualizar documento. Tente novamente.')
+    }
+  }
+
+  const excluirDocumento = async (documento: Documento) => {
+    if (!confirm(`Tem certeza que deseja excluir "${documento.nome_arquivo}"?`)) {
+      return
+    }
+
+    try {
+      // Remover do storage
+      const { error: storageError } = await supabase.storage
+        .from('documentos')
+        .remove([documento.url])
+
+      if (storageError) {
+        console.error('Erro ao remover do storage:', storageError)
+        // Continuar mesmo se falhar no storage
+      }
+
+      // Remover do banco de dados
+      const { error: dbError } = await supabase
+        .from('documentos')
+        .delete()
+        .eq('id', documento.id)
+
+      if (dbError) throw dbError
+
+      // Atualizar a lista
+      await buscarAnalises()
+      
+      // Se estiver no modal de detalhes, atualizar também
+      if (analiseDetalhes && analiseDetalhes.id === documento.analise_id) {
+        setAnaliseDetalhes(prev => ({
+          ...prev,
+          documentos: prev.documentos.filter(d => d.id !== documento.id)
+        }))
+      }
+
+      alert('Documento excluído com sucesso!')
+    } catch (error) {
+      console.error('Erro ao excluir documento:', error)
+      alert('Erro ao excluir documento. Tente novamente.')
     }
   }
 
@@ -785,10 +827,22 @@ export default function VendedorDashboard() {
                               <FileText className="h-5 w-5 text-gray-500" />
                               <span className="text-sm font-medium">{doc.nome_arquivo}</span>
                             </div>
-                            <button onClick={() => visualizarDocumento(doc)} className="text-primary-600 hover:text-primary-800 flex items-center space-x-1">
-                              <Download className="h-4 w-4" />
-                              <span>Ver</span>
-                            </button>
+                            <div className="flex items-center space-x-2">
+                              <button onClick={() => visualizarDocumento(doc)} className="text-primary-600 hover:text-primary-800 flex items-center space-x-1">
+                                <Download className="h-4 w-4" />
+                                <span>Ver</span>
+                              </button>
+                              {/* Só permitir excluir se status for rascunho ou reanalise */}
+                              {(analiseDetalhes.status === 'rascunho' || analiseDetalhes.status === 'reanalise') && (
+                                <button 
+                                  onClick={() => excluirDocumento(doc)} 
+                                  className="text-red-600 hover:text-red-800 flex items-center space-x-1"
+                                  title="Excluir documento"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
